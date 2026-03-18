@@ -62,6 +62,42 @@ body {
 }
 .icon-btn:hover { background: var(--border); }
 
+/* Backup bar */
+#backup-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 20px;
+}
+
+.backup-action {
+  padding: 5px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.backup-action:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+#backup-status {
+  font-size: 11px;
+  color: var(--text2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#backup-status.synced {
+  color: #6a9e7e;
+}
+
 /* Tabs */
 #tabs {
   display: flex;

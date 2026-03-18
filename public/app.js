@@ -544,6 +544,7 @@ form.addEventListener('submit', async (e) => {
   resources = await getAllResources();
   closeModal();
   render();
+  syncBackup();
 });
 
 // ── Delete ─────────────────────────────────────────────────────
@@ -555,6 +556,7 @@ deleteBtn.addEventListener('click', async () => {
   resources = await getAllResources();
   closeModal();
   render();
+  syncBackup();
 });
 
 // ── Events ─────────────────────────────────────────────────────
@@ -746,6 +748,108 @@ function formatDate(ts) {
     month: 'short', day: 'numeric', year: 'numeric'
   });
 }
+
+// ── Local Folder Backup ────────────────────────────────────────
+const backupBtn = $('#backup-btn');
+const backupStatus = $('#backup-status');
+let backupDirHandle = null;
+const supportsFileSystem = 'showDirectoryPicker' in window;
+
+function sanitizeFilename(str) {
+  return str.replace(/[^a-z0-9 _-]/gi, '').replace(/\s+/g, '-').slice(0, 60).toLowerCase();
+}
+
+function resourceToMarkdown(r) {
+  let md = `# ${r.title}\n\n`;
+  md += `- **Type:** ${r.type}\n`;
+  if (r.url) md += `- **URL:** ${r.url}\n`;
+  md += `- **Tags:** ${r.tags.join(', ')}\n`;
+  md += `- **Date Added:** ${formatDate(r.createdAt)}\n`;
+  if (r.updatedAt) md += `- **Last Updated:** ${formatDate(r.updatedAt)}\n`;
+  if (r.notes) md += `\n## Notes\n\n${r.notes}\n`;
+  return md;
+}
+
+async function syncBackup() {
+  if (!backupDirHandle) return;
+
+  try {
+    // Write individual .md files for each resource
+    const existingFiles = new Set();
+    for await (const [name] of backupDirHandle) {
+      existingFiles.add(name);
+    }
+
+    const currentFiles = new Set();
+    for (const r of resources) {
+      const filename = `${sanitizeFilename(r.title)}-${r.id.slice(0, 8)}.md`;
+      currentFiles.add(filename);
+      const fileHandle = await backupDirHandle.getFileHandle(filename, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(resourceToMarkdown(r));
+      await writable.close();
+    }
+
+    // Write master JSON
+    const jsonHandle = await backupDirHandle.getFileHandle('second-brain-backup.json', { create: true });
+    const jsonWritable = await jsonHandle.createWritable();
+    await jsonWritable.write(JSON.stringify(resources, null, 2));
+    await jsonWritable.close();
+    currentFiles.add('second-brain-backup.json');
+
+    // Remove .md files for deleted resources
+    for (const name of existingFiles) {
+      if (name.endsWith('.md') && !currentFiles.has(name)) {
+        try { await backupDirHandle.removeEntry(name); } catch {}
+      }
+    }
+
+    backupStatus.textContent = `Synced ${resources.length} items`;
+    backupStatus.className = 'synced';
+  } catch (err) {
+    backupStatus.textContent = 'Backup failed';
+    backupStatus.className = '';
+    console.error('Backup error:', err);
+  }
+}
+
+async function pickBackupFolder() {
+  if (supportsFileSystem) {
+    try {
+      backupDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+      backupBtn.textContent = 'Change folder';
+      backupStatus.textContent = 'Syncing...';
+      await syncBackup();
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        backupStatus.textContent = 'Could not access folder';
+      }
+    }
+  } else {
+    // Fallback: download JSON file
+    downloadBackupJson();
+  }
+}
+
+function downloadBackupJson() {
+  const data = JSON.stringify(resources, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `second-brain-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  backupStatus.textContent = 'Downloaded!';
+  setTimeout(() => { backupStatus.textContent = ''; }, 3000);
+}
+
+// Set button text based on browser support
+if (!supportsFileSystem) {
+  backupBtn.textContent = 'Download backup';
+}
+
+backupBtn.addEventListener('click', pickBackupFolder);
 
 // ── Service Worker ─────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
