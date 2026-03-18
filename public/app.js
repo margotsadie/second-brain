@@ -450,6 +450,7 @@ function showDetail(id) {
     <div class="detail-date">Saved ${formatDate(r.createdAt)}</div>
     <div class="detail-actions">
       <button class="btn-secondary" onclick="openEdit('${r.id}')">Edit</button>
+      <button class="btn-secondary" onclick="downloadResourceAsDocx('${r.id}')">Download</button>
       ${r.url ? `<a class="btn-secondary" href="${escapeHtml(r.url)}" target="_blank" rel="noopener" style="text-decoration:none;text-align:center;">Open Link</a>` : ''}
     </div>
   `;
@@ -713,6 +714,88 @@ function formatDate(ts) {
   });
 }
 
+// ── Docx Generation ────────────────────────────────────────────
+function createResourceDocx(r) {
+  const { Document, Paragraph, TextRun, HeadingLevel, AlignmentType, Packer } = docx;
+
+  const children = [
+    new Paragraph({
+      text: r.title,
+      heading: HeadingLevel.HEADING_1,
+      spacing: { after: 200 },
+    }),
+    new Paragraph({
+      children: [
+        new TextRun({ text: 'Type: ', bold: true }),
+        new TextRun(r.type),
+      ],
+      spacing: { after: 100 },
+    }),
+  ];
+
+  if (r.url) {
+    children.push(new Paragraph({
+      children: [
+        new TextRun({ text: 'URL: ', bold: true }),
+        new TextRun(r.url),
+      ],
+      spacing: { after: 100 },
+    }));
+  }
+
+  if (r.tags.length > 0) {
+    children.push(new Paragraph({
+      children: [
+        new TextRun({ text: 'Tags: ', bold: true }),
+        new TextRun(r.tags.join(', ')),
+      ],
+      spacing: { after: 100 },
+    }));
+  }
+
+  children.push(new Paragraph({
+    children: [
+      new TextRun({ text: 'Date Added: ', bold: true }),
+      new TextRun(formatDate(r.createdAt)),
+    ],
+    spacing: { after: 200 },
+  }));
+
+  if (r.notes) {
+    children.push(new Paragraph({
+      text: 'Notes',
+      heading: HeadingLevel.HEADING_2,
+      spacing: { before: 200, after: 100 },
+    }));
+    // Split notes into paragraphs
+    r.notes.split('\n').forEach(line => {
+      children.push(new Paragraph({
+        text: line,
+        spacing: { after: 80 },
+      }));
+    });
+  }
+
+  return new Document({
+    sections: [{ children }],
+  });
+}
+
+async function downloadResourceAsDocx(id) {
+  const r = resources.find(r => r.id === id);
+  if (!r) return;
+
+  const doc = createResourceDocx(r);
+  const blob = await docx.Packer.toBlob(doc);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${sanitizeFilename(r.title)}.docx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+window.downloadResourceAsDocx = downloadResourceAsDocx;
+
 // ── Local Folder Backup ────────────────────────────────────────
 const backupBtn = $('#backup-btn');
 const backupStatus = $('#backup-status');
@@ -721,17 +804,6 @@ const supportsFileSystem = 'showDirectoryPicker' in window;
 
 function sanitizeFilename(str) {
   return str.replace(/[^a-z0-9 _-]/gi, '').replace(/\s+/g, '-').slice(0, 60).toLowerCase();
-}
-
-function resourceToMarkdown(r) {
-  let md = `# ${r.title}\n\n`;
-  md += `- **Type:** ${r.type}\n`;
-  if (r.url) md += `- **URL:** ${r.url}\n`;
-  md += `- **Tags:** ${r.tags.join(', ')}\n`;
-  md += `- **Date Added:** ${formatDate(r.createdAt)}\n`;
-  if (r.updatedAt) md += `- **Last Updated:** ${formatDate(r.updatedAt)}\n`;
-  if (r.notes) md += `\n## Notes\n\n${r.notes}\n`;
-  return md;
 }
 
 async function syncBackup() {
@@ -745,14 +817,17 @@ async function syncBackup() {
 
     const currentFiles = new Set();
     for (const r of resources) {
-      const filename = `${sanitizeFilename(r.title)}-${r.id.slice(0, 8)}.md`;
+      const filename = `${sanitizeFilename(r.title)}-${r.id.slice(0, 8)}.docx`;
       currentFiles.add(filename);
+      const doc = createResourceDocx(r);
+      const blob = await docx.Packer.toBlob(doc);
       const fileHandle = await backupDirHandle.getFileHandle(filename, { create: true });
       const writable = await fileHandle.createWritable();
-      await writable.write(resourceToMarkdown(r));
+      await writable.write(blob);
       await writable.close();
     }
 
+    // Also keep the master JSON backup
     const jsonHandle = await backupDirHandle.getFileHandle('second-brain-backup.json', { create: true });
     const jsonWritable = await jsonHandle.createWritable();
     await jsonWritable.write(JSON.stringify(resources, null, 2));
@@ -760,7 +835,7 @@ async function syncBackup() {
     currentFiles.add('second-brain-backup.json');
 
     for (const name of existingFiles) {
-      if (name.endsWith('.md') && !currentFiles.has(name)) {
+      if ((name.endsWith('.docx') || name.endsWith('.md')) && !currentFiles.has(name)) {
         try { await backupDirHandle.removeEntry(name); } catch {}
       }
     }
