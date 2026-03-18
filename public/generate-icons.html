@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html><body>
+<canvas id="c"></canvas>
+<script>
+[192, 512].forEach(size => {
+  const c = document.getElementById('c');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  // Background
+  ctx.fillStyle = '#6366f1';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, size, size, size * 0.2);
+  ctx.fill();
+  // Brain icon (simple)
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${size * 0.5}px system-ui`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🧠', size/2, size/2);
+
+  const link = document.createElement('a');
+  link.download = `icon-${size}.png`;
+  link.href = c.toDataURL();
+  link.click();
+});
+</script>
+</body></html>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#a78bbd">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Second Brain</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header id="header">
+      <h1>Second Brain</h1>
+      <button id="add-btn" class="icon-btn" aria-label="Add new resource">+</button>
+    </header>
+
+    <!-- Navigation tabs -->
+    <nav id="tabs">
+      <button class="tab active" data-view="list">Library</button>
+      <button class="tab" data-view="map">Map</button>
+    </nav>
+
+    <!-- Search bar -->
+    <div id="search-bar">
+      <input type="text" id="search-input" placeholder="Search titles, notes, or tags...">
+    </div>
+
+    <!-- Tag filter chips -->
+    <div id="tag-filters"></div>
+
+    <!-- Main content views -->
+    <main id="list-view" class="view active">
+      <div id="entries-list"></div>
+      <div id="empty-state">
+        <p>Your second brain is empty.</p>
+        <p>Tap <strong>+</strong> to save your first article, podcast, or resource.</p>
+      </div>
+    </main>
+
+    <main id="map-view" class="view">
+      <div id="map-container"></div>
+      <div id="map-empty-state">
+        <p>Add a few resources with tags to see your knowledge map.</p>
+      </div>
+    </main>
+
+    <!-- Add/Edit modal -->
+    <div id="modal-overlay" class="hidden">
+      <div id="modal">
+        <div id="modal-header">
+          <h2 id="modal-title">Add Resource</h2>
+          <button id="modal-close" class="icon-btn">&times;</button>
+        </div>
+        <form id="resource-form">
+          <label for="input-url">Paste a link</label>
+          <input type="url" id="input-url" placeholder="https://... (paste a link to auto-fill)">
+          <div id="url-status" class="hidden"></div>
+
+          <label for="input-title">Title *</label>
+          <input type="text" id="input-title" required placeholder="e.g. How AI is changing design">
+
+          <label for="input-type">Type</label>
+          <select id="input-type">
+            <option value="article">Article</option>
+            <option value="podcast">Podcast</option>
+            <option value="video">Video</option>
+            <option value="book">Book</option>
+            <option value="paper">Paper</option>
+            <option value="other">Other</option>
+          </select>
+
+          <label for="input-tags">Tags</label>
+          <input type="text" id="input-tags" placeholder="Add your own tags (comma separated)">
+          <div id="suggested-tags"></div>
+
+          <label for="input-notes">Notes</label>
+          <textarea id="input-notes" rows="4" placeholder="Key takeaways, quotes, thoughts..."></textarea>
+
+          <div id="date-added-section">
+            <label>Date Added</label>
+            <div id="date-added-display"></div>
+          </div>
+
+          <input type="hidden" id="input-id">
+          <div id="form-actions">
+            <button type="button" id="delete-btn" class="btn-danger hidden">Delete</button>
+            <button type="submit" class="btn-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Detail view (shown when tapping an entry) -->
+    <div id="detail-overlay" class="hidden">
+      <div id="detail-panel">
+        <button id="detail-close" class="icon-btn">&times;</button>
+        <div id="detail-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
