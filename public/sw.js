@@ -1,8 +1,6 @@
-const CACHE_NAME = 'second-brain-v1';
-const ASSETS = ['/', '/index.html', '/style.css', '/app.js'];
+const CACHE_NAME = 'second-brain-v3';
 
-self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
@@ -15,9 +13,18 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
+// Network-first: always try fresh content, fall back to cache for offline
 self.addEventListener('fetch', (e) => {
-  if (e.request.url.includes('d3')) return;
+  // Skip Firebase and D3 CDN requests
+  if (e.request.url.includes('gstatic.com') || e.request.url.includes('d3js.org') || e.request.url.includes('googleapis.com') || e.request.url.includes('firebaseapp.com')) return;
+
   e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request))
+    fetch(e.request)
+      .then((response) => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(e.request))
   );
 });
